@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحليل درجات الطالبات ونواتج التعلم</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body { font-family: 'Tajawal', sans-serif; background-color: #f3f4f6; }
+        .card { background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); padding: 1.5rem; }
+        .tab-btn { transition: all 0.2s ease-in-out; white-space: nowrap; }
+        .tab-active { border-bottom-color: #2563EB !important; color: #1E3A8A !important; background-color: #EFF6FF !important; }
+        /* إعدادات الطباعة */
+        @media print {
+            .no-print { display: none !important; }
+            body { background-color: white; padding: 0 !important; }
+            .card { box-shadow: none !important; border: 1px solid #e5e7eb; page-break-inside: avoid; margin-bottom: 20px;}
+            canvas { max-width: 100% !important; height: auto !important; }
+            #print-logo { display: block !important; max-width: 150px !important; }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 text-gray-800">
+
+    <header class="flex justify-between items-center mb-8 border-b pb-4 border-gray-300">
+        <div>
+            <h1 class="text-3xl font-bold text-blue-900">نظام تحليل البيانات وقياس نواتج التعلم</h1>
+            <p class="text-gray-500 mt-2" id="course-info">يرجى رفع ملف الإكسل للبدء...</p>
+        </div>
+        
+        <div class="flex flex-col items-center">
+            <img src="logo.png" id="print-logo" alt="شعار المؤسسة" 
+                 class="w-32 h-32 md:w-48 md:h-48 object-contain" 
+                 onerror="this.src='https://via.placeholder.com/200x200.png?text=شعار+المؤسسة'">
+        </div>
+    </header>
+
+    <div class="card mb-8 no-print text-center" id="upload-section">
+        <label class="block text-lg font-bold mb-4 text-gray-700">ارفع ملف الإكسل (يدعم الصفحات المتعددة Sheets)</label>
+        <input type="file" id="upload-excel" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-gray-500
+          file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold
+          file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer p-4 border-2 border-dashed border-gray-300 rounded-lg"/>
+    </div>
+
+    <div id="dashboard" class="hidden">
+        
+        <div class="flex justify-between items-center mb-4 no-print">
+            <p class="text-green-600 font-bold">✅ تم قراءة وتحليل البيانات بنجاح!</p>
+            <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow transition-all">
+                🖨️ تصدير التقرير (PDF)
+            </button>
+        </div>
+
+        <div id="tabs-container" class="flex overflow-x-auto border-b border-gray-300 mb-8 no-print gap-2 pb-0 pt-2 px-2 bg-gray-50 rounded-t-lg"></div>
+
+        <h2 id="sheet-title" class="text-2xl font-bold mb-4 text-blue-800 border-r-4 border-blue-600 pr-2"></h2>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8 text-center">
+            <div class="card bg-blue-50 border border-blue-100 p-4">
+                <h3 class="text-gray-500 font-bold mb-1 text-sm">الإجمالي</h3>
+                <p id="total-students" class="text-2xl font-bold text-blue-700">0</p>
+            </div>
+            <div class="card bg-green-50 border border-green-100 p-4">
+                <h3 class="text-gray-500 font-bold mb-1 text-sm">المتوسط</h3>
+                <p id="mean-score" class="text-2xl font-bold text-green-700">0</p>
+            </div>
+            <div class="card bg-purple-50 border border-purple-100 p-4">
+                <h3 class="text-gray-500 font-bold mb-1 text-sm">الوسيط</h3>
+                <p id="median-score" class="text-2xl font-bold text-purple-700">0</p>
+            </div>
+            <div class="card bg-yellow-50 border border-yellow-100 p-4">
+                <h3 class="text-gray-500 font-bold mb-1 text-sm">أعلى درجة</h3>
+                <p id="max-score" class="text-2xl font-bold text-yellow-700">0</p>
+            </div>
+            <div class="card bg-red-50 border border-red-100 p-4">
+                <h3 class="text-gray-500 font-bold mb-1 text-sm">أقل درجة</h3>
+                <p id="min-score" class="text-2xl font-bold text-red-700">0</p>
+            </div>
+            <div class="card bg-gray-50 border border-gray-200 p-4">
+                <h3 class="text-gray-500 font-bold mb-1 text-sm">الانحراف المعياري</h3>
+                <p id="std-dev" class="text-2xl font-bold text-gray-700">0</p>
+            </div>
+        </div>
+
+        <h2 class="text-xl font-bold mb-4 text-blue-800 border-r-4 border-blue-600 pr-2">تحليل نواتج التعلم ومستويات الطالبات</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="card flex flex-col justify-center items-center">
+                <h3 class="text-lg font-bold text-gray-700 mb-4">معدل الاجتياز</h3>
+                <div class="relative w-48 h-48">
+                    <canvas id="passRateChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="card lg:col-span-2">
+                <h3 class="text-lg font-bold text-gray-700 mb-4">توزيع التقديرات المستحقة</h3>
+                <canvas id="gradesDistributionChart" style="max-height: 250px;"></canvas>
+                <div id="grades-badges" class="flex flex-wrap justify-center gap-2 mt-4 border-t pt-4"></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="card">
+                <h3 class="text-lg font-bold text-gray-700 mb-4 text-center">متوسط الأداء في بنود التقييم</h3>
+                <canvas id="assessmentRadarChart"></canvas>
+            </div>
+
+            <div class="card">
+                <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">علاقة الحضور بالدرجة النهائية</h3>
+             
+                <canvas id="correlationChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let passChart, distChart, radarChart, corrChart;
+        let sheetsData = [];
+        let currentTabIndex = 0;
+
+        // دالة قواعد اللغة العربية للعدد والمعدود
+        function formatStudentCount(count) {
+            if (count === 0) return "0 طالبة";
+            if (count === 1) return "طالبة واحدة";
+            if (count === 2) return "طالبتان";
+            if (count >= 3 && count <= 10) return count + " طالبات";
+            return count + " طالبة"; // لـ 11 وما فوق
+        }
+
+        document.getElementById('upload-excel').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                
+                sheetsData = []; 
+                
+                workbook.SheetNames.forEach(sheetName => {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const rawData = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
+                    
+                    const processedData = processSheet(rawData, sheetName);
+                    if(processedData) sheetsData.push(processedData); 
+                });
+
+                if (sheetsData.length === 0) {
+                    alert("لم يتم العثور على بيانات صالحة.");
+                    return;
+                }
+
+                document.getElementById('dashboard').classList.remove('hidden');
+                document.getElementById('upload-section').classList.add('hidden');
+                
+                currentTabIndex = 0;
+                renderTabs();
+                switchTab(0);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function processSheet(rows, sheetName) {
+            let cols = { name: -1, final: -1, attendance: -1, participation: -1, homework: -1, quiz: -1, finalExam: -1 };
+            let courseName = "غير محدد";
+
+            for (let i = 0; i < Math.min(rows.length, 50); i++) {
+                const row = rows[i];
+                let rowText = row.join(" ").trim();
+                
+                if(rowText.includes("اسم المقرر")) {
+                    let match = rowText.match(/اسم المقرر.*?(?=القسم|دبلوم|$)/);
+                    if(match) courseName = match[0].replace(":", "").trim();
+                }
+
+                row.forEach((cell, index) => {
+                    if (!cell) return;
+                    let val = String(cell).replace(/\s+/g, ' ').trim();
+                    if(val.includes("اسم المتدربة") || val.includes("اسم الطالبة")) cols.name = index;
+                    else if(val.includes("الدرجة النهائية") || val.includes("المجموع النهائي")) cols.final = index;
+                    else if(val.includes("الحضور")) cols.attendance = index;
+                    else if(val.includes("المشاركة")) cols.participation = index;
+                    else if(val.includes("واجبات")) cols.homework = index;
+                    else if(val.includes("اختبار قصير")) cols.quiz = index;
+                    else if(val.includes("اختبار نهائي") && !val.includes("الدرجة")) cols.finalExam = index;
+                });
+            }
+
+            if (cols.name === -1 || cols.final === -1) return null;
+
+            let students = [];
+            let scatterData = [];
+            let sums = { attendance: 0, participation: 0, homework: 0, quiz: 0, finalExam: 0 };
+            
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.length < 2) continue;
+                
+                let name = String(row[cols.name] || "").trim();
+                if (!name || name.includes("اسم المتدربة") || name.includes("المصححة") || name.includes("المراجعة")) continue;
+                
+                let finalScore = parseFloat(row[cols.final]);
+                if (isNaN(finalScore)) continue; 
+                let attScore = parseFloat(row[cols.attendance]) || 0;
+
+                if (finalScore === 100 && attScore === 10 && parseFloat(row[cols.finalExam]) === 60) continue;
+
+                students.push(finalScore);
+                
+                scatterData.push({ x: attScore, y: finalScore, studentName: name });
+
+                sums.attendance += attScore;
+                sums.participation += parseFloat(row[cols.participation] || 0);
+                sums.homework += parseFloat(row[cols.homework] || 0);
+                sums.quiz += parseFloat(row[cols.quiz] || 0);
+                sums.finalExam += parseFloat(row[cols.finalExam] || 0);
+            }
+
+            if (students.length === 0) return null;
+
+            const count = students.length;
+            const max = Math.max(...students);
+            const min = Math.min(...students);
+            const mean = students.reduce((a, b) => a + b, 0) / count;
+            
+            const sortedGrades = [...students].sort((a, b) => a - b);
+            const median = count % 2 !== 0 ? sortedGrades[Math.floor(count / 2)] : (sortedGrades[count / 2 - 1] + sortedGrades[count / 2]) / 2;
+
+            const variance = students.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / count;
+            const stdDev = Math.sqrt(variance);
+
+            const passed = students.filter(g => g >= 60).length;
+            const failed = count - passed;
+
+            let gradesCount = { 'ممتاز': 0, 'جيد جدا': 0, 'جيد': 0, 'مقبول': 0, 'راسب': 0 };
+            students.forEach(g => {
+                if (g >= 90) gradesCount['ممتاز']++;
+                else if (g >= 80) gradesCount['جيد جدا']++;
+                else if (g >= 70) gradesCount['جيد']++;
+                else if (g >= 60) gradesCount['مقبول']++;
+                else gradesCount['راسب']++;
+            });
+
+            const avgData = [
+                (sums.attendance / count) * 10,
+                (sums.participation / count) * 10,
+                (sums.homework / count) * 10,
+                (sums.quiz / count) * 10,
+                (sums.finalExam / count) * (100/60)
+            ];
+
+            return { sheetName, courseName, count, max, min, mean, median, stdDev, passed, failed, gradesCount, avgData, scatterData };
+        }
+
+        function renderTabs() {
+            const container = document.getElementById('tabs-container');
+            container.innerHTML = '';
+            sheetsData.forEach((sheet, index) => {
+                const btn = document.createElement('button');
+                btn.className = `tab-btn px-6 py-3 font-bold text-sm border-b-4 rounded-t-md ${index === currentTabIndex ? 'tab-active border-blue-600 text-blue-800' : 'border-transparent text-gray-500 hover:bg-gray-200 hover:text-gray-800'}`;
+                btn.innerText = `📄 ${sheet.sheetName}`;
+                btn.onclick = () => switchTab(index);
+                container.appendChild(btn);
+            });
+        }
+
+        function switchTab(index) {
+            currentTabIndex = index;
+            renderTabs(); 
+            const data = sheetsData[index];
+            
+            document.getElementById('course-info').innerHTML = `<strong>المقرر:</strong> ${data.courseName}`;
+            document.getElementById('sheet-title').innerText = `تحليل بيانات: ${data.sheetName}`;
+
+            document.getElementById('total-students').innerText = data.count;
+            document.getElementById('mean-score').innerText = data.mean.toFixed(1);
+            document.getElementById('median-score').innerText = data.median.toFixed(1);
+            document.getElementById('max-score').innerText = data.max;
+            document.getElementById('min-score').innerText = data.min;
+            document.getElementById('std-dev').innerText = data.stdDev.toFixed(2);
+
+            const badgesContainer = document.getElementById('grades-badges');
+            badgesContainer.innerHTML = '';
+            const colors = { 'ممتاز': 'bg-blue-100 text-blue-800 border-blue-300', 'جيد جدا': 'bg-cyan-100 text-cyan-800 border-cyan-300', 'جيد': 'bg-green-100 text-green-800 border-green-300', 'مقبول': 'bg-yellow-100 text-yellow-800 border-yellow-300', 'راسب': 'bg-red-100 text-red-800 border-red-300' };
+            
+            for (const [grade, count] of Object.entries(data.gradesCount)) {
+                // استخدام دالة الصياغة اللغوية هنا
+                let countText = formatStudentCount(count);
+                badgesContainer.innerHTML += `<div class="px-3 py-1 rounded-full border text-sm font-bold ${colors[grade]}">${grade}: ${countText}</div>`;
+            }
+
+            drawCharts(data);
+        }
+
+        function drawCharts(data) {
+            Chart.defaults.font.family = "'Tajawal', sans-serif";
+
+            if(passChart) passChart.destroy();
+            passChart = new Chart(document.getElementById('passRateChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['مجتاز', 'لم يجتز'],
+                    datasets: [{ data: [data.passed, data.failed], backgroundColor: ['#10B981', '#EF4444'] }]
+                },
+                options: { plugins: { legend: { position: 'bottom' } }, animation: false }
+            });
+
+            if(distChart) distChart.destroy();
+            distChart = new Chart(document.getElementById('gradesDistributionChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(data.gradesCount),
+                    datasets: [{
+                        label: 'العدد',
+                        data: Object.values(data.gradesCount),
+                        backgroundColor: ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444'],
+                        borderRadius: 4
+                    }]
+                },
+                options: { scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }, plugins:{legend:{display:false}}, animation: false }
+            });
+
+            if(radarChart) radarChart.destroy();
+            radarChart = new Chart(document.getElementById('assessmentRadarChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['الحضور', 'المشاركة', 'الواجبات', 'الاختبار القصير', 'الاختبار النهائي'],
+                    datasets: [{
+                        label: 'متوسط الأداء (من 100%)',
+                        data: data.avgData,
+                        backgroundColor: '#8B5CF6',
+                        borderRadius: 4
+                    }]
+                },
+                options: { 
+                    scales: { y: { beginAtZero: true, max: 100 } },
+                    plugins: { tooltip: { callbacks: { label: function(c) { return c.raw.toFixed(1) + '%'; } } } },
+                    animation: false
+                }
+            });
+
+            if(corrChart) corrChart.destroy();
+            corrChart = new Chart(document.getElementById('correlationChart'), {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'الطالبات',
+                        data: data.scatterData,
+                        backgroundColor: '#EC4899', 
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: { title: { display: true, text: 'درجة الحضور (من 10)' }, min: 0, max: 11 },
+                        y: { title: { display: true, text: 'الدرجة النهائية (من 100)' }, min: 0, max: 105 }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const point = ctx.raw;
+                                    return `${point.studentName} | الحضور: ${point.x}، النهائي: ${point.y}`;
+                                }
+                            }
+                        }
+                    },
+                    animation: false
+                }
+            });
+        }
+    </script>
+</body>
+</html>
