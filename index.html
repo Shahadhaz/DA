@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة تحليل درجات الطالبات ونواتج التعلم</title>
+    <title>لوحة تحليل درجات المتدربات ونواتج التعلم</title>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -86,7 +86,7 @@
             </div>
         </div>
 
-        <h2 class="text-xl font-bold mb-4 text-blue-800 border-r-4 border-blue-600 pr-2">تحليل نواتج التعلم ومستويات الطالبات</h2>
+        <h2 class="text-xl font-bold mb-4 text-blue-800 border-r-4 border-blue-600 pr-2">تحليل نواتج التعلم ومستويات المتدربات</h2>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <div class="card flex flex-col justify-center items-center">
                 <h3 class="text-lg font-bold text-gray-700 mb-4">معدل الاجتياز</h3>
@@ -124,11 +124,11 @@
 
         // دالة قواعد اللغة العربية للعدد والمعدود
         function formatStudentCount(count) {
-            if (count === 0) return "0 طالبة";
-            if (count === 1) return "طالبة واحدة";
-            if (count === 2) return "طالبتان";
-            if (count >= 3 && count <= 10) return count + " طالبات";
-            return count + " طالبة"; // لـ 11 وما فوق
+            if (count === 0) return "0 متدربة";
+            if (count === 1) return "متدربة واحدة";
+            if (count === 2) return "متدربتان";
+            if (count >= 3 && count <= 10) return count + " متدربات";
+            return count + " متدربة"; // لـ 11 وما فوق
         }
 
         document.getElementById('upload-excel').addEventListener('change', function(e) {
@@ -181,7 +181,7 @@
                 row.forEach((cell, index) => {
                     if (!cell) return;
                     let val = String(cell).replace(/\s+/g, ' ').trim();
-                    if(val.includes("اسم المتدربة") || val.includes("اسم الطالبة")) cols.name = index;
+                    if(val.includes("اسم المتدربة") || val.includes("اسم المتدربة")) cols.name = index;
                     else if(val.includes("الدرجة النهائية") || val.includes("المجموع النهائي")) cols.final = index;
                     else if(val.includes("الحضور")) cols.attendance = index;
                     else if(val.includes("المشاركة")) cols.participation = index;
@@ -349,7 +349,7 @@
                 type: 'scatter',
                 data: {
                     datasets: [{
-                        label: 'الطالبات',
+                        label: 'المتدربات',
                         data: data.scatterData,
                         backgroundColor: '#EC4899', 
                         pointRadius: 6,
